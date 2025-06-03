@@ -1,0 +1,52 @@
+import math
+from qgis.core import (
+    QgsVectorLayer,
+    QgsFeature,
+    QgsGeometry,
+    QgsPointXY,
+    QgsProject
+)
+
+# 地球平均半径（千米）
+R = 6371
+
+# 创建一个新的矢量图层（线类型，WGS84 坐标系）
+layer = QgsVectorLayer("LineString?crs=EPSG:4326", "100km_lines_at_105E", "memory")
+provider = layer.dataProvider()
+
+# 定义纬度范围（-80° 到 80°，步长 10°）
+latitudes = range(-80, 81, 2)
+
+# 固定经度（东经 105°）
+base_lon = 105
+
+# 遍历纬度，生成 100 千米线段
+for lat in latitudes:
+    # 将纬度转换为弧度
+    lat_rad = math.radians(lat)
+    
+    # 计算 1 度经度的实际距离（千米）
+    dist_per_degree = R * math.cos(lat_rad) * math.pi / 180
+    
+    # 计算 100 千米对应的经度跨度（度）
+    delta_lon = 100 / dist_per_degree if dist_per_degree != 0 else 0
+    
+    # 避免极点附近无效值
+    if abs(lat) >= 89:  # 极点附近跳过
+        continue
+    
+    # 定义线段的起点和终点（以经纬度表示）
+    start_point = QgsPointXY(base_lon, lat)  # 起点经度为 105°E
+    end_point = QgsPointXY(base_lon + delta_lon, lat)  # 终点经度为 105°E + delta_lon
+    
+    # 创建线段几何
+    line = QgsGeometry.fromPolylineXY([start_point, end_point])
+    
+    # 创建新要素并添加到图层
+    feature = QgsFeature()
+    feature.setGeometry(line)
+    provider.addFeature(feature)
+
+# 更新图层范围并添加到项目
+layer.updateExtents()
+QgsProject.instance().addMapLayer(layer)
